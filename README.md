@@ -1,6 +1,7 @@
 # GPPEVI
 
 In Gridworld:
+
     + BCQ.py, BEAR.py, train_pql.py are used for training PQL policy 
     + collect_data.py is used for collecting data 
     + env.py stores the configuration of the environment including of: 
