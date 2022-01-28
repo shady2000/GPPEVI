@@ -34,6 +34,7 @@ In Gridworld:
 
 
 In Pendulum:
+
     + BCQ.py, BEAR.py, train_pql.py are used for training PQL policy 
     + collect_data.py is used for collecting data 
     + utils.py stores the configuration of the environment as well as the problem including of: 
