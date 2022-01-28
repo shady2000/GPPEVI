@@ -54,7 +54,6 @@ In Pendulum:
         - Discretize action space into 10 actions each dimension 
         - State has 3 dimensions 
         - Action has 1 dimension 
-        - 
         - Current HORIZON: 50 
 
     + run python3 collect_data.py to collect data with random policy  
