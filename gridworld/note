@@ -1,0 +1,40 @@
+
+
+gaussian noise to make it deterministic. 
+
+so voi thuat toan random 
+moving average ...
+
+r = f(s') 
+s' <- s, a
+stochastic khac 
+
+next step: cat dat thuat toan bai ICLR
+best: chung minh la k cai duoc :))))
+neu k cai duoc, why? 
+
+Given S 
+Pi(ai|s) = xi 
+Maximize q1x1 + q2x2 + … + qnxn 
+s.t  x1+x2+…+xn = 1, xi >= 0 
+Qi: Q(ai|s)
+Chỉ được là không quy đc về convex opt (linear/ quadratic)
+
+chi mot cach xap xi thuat toan cua ho (practical algorithm), chung minh k tot bang thuat toan cua minh 
+
+khong tim duoc bound ly thuyet nhung practical ==> cung duoc
+
+s = (20, 30)  
+a = 3
+phi(s,a) = np.array([20, 30, 3]) 
+
+reward = f(s') = e^x/(e^x+e^y) 
+
+ham theo s' 
+
+Next steps 11/14/2021: 
+	sua moi truong + so sanh voi uniform random theo con so V* - V_max 
+		logic: random ==> nen tang linear 
+		pessimism tang cham vi hoi tu theo H (sub-linear theo H, T) 
+	thu implement ICLR 
+	literature review structure 
