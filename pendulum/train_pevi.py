@@ -9,6 +9,7 @@ def init():
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
     dataset.load("./dataset--nt-{}_h-{}_s-{}_a-{}".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))
     env = gym.make(utils.env_name)
+    env.seed(1)
     s_init = obs2bin(env.reset())
     K = utils.num_trajectories
     d = phi(env.reset(), env.action_space.sample()).shape[0]
@@ -17,6 +18,8 @@ def init():
     states = dataset.state[0:K*HORIZON,:].reshape((K, HORIZON, utils.state_dim))
     actions = dataset.action[0:K*HORIZON,:].reshape((K, HORIZON, utils.action_dim))
     rewards = dataset.reward[0:K*HORIZON].reshape((K, HORIZON))
+    states = utils.obs2bin(states)
+    actions = utils.obs2bin(actions)
     return dataset, env, prob, VHat, states, actions, rewards, K, d
 
 def main(args):
@@ -57,9 +60,11 @@ def main(args):
                 Q_hat_h[x][a] = np.clip(Q_Overline_h[x][a], 0, HORIZON - h + 1)
             for a in range(utils.num_act_bins):
                 if (a == np.argmax(Q_hat_h[x][:])):
+                    #pi_h[x][a] = 1 - args.exp
                     pi_h[x][a] = 1 - args.exp
                 else:
-                    pi_h[x][a] = args.exp/(utils.num_act_bins-1)
+                    #pi_h[x][a] = args.exp/(utils.num_act_bins-1)
+                    pi_h[x][a] = 0
             VHat[x][h-1] = np.dot(Q_hat_h[x][:], pi_h[x][:])
             prob[:, :, :, :, h-1] = pi_h
     return prob

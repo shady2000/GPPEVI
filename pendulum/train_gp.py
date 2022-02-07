@@ -4,7 +4,9 @@ import numpy as np
 import utils
 from utils import HORIZON, env_name, phi
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern, WhiteKernel
+import random
+import time
 
 #specifying the kernel functions 
 def kr(z1, z2): 
@@ -35,8 +37,9 @@ def z(s, a):
 
 def init():
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
-    dataset.load("./dataset--nt-{}_h-{}_s-{}_a-{}".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))
+    dataset.load("./pg_dataset--nt-{}_h-{}_s-{}_a-{}".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))
     env = gym.make(env_name)
+    env.seed(1)
     K = utils.num_trajectories
     d = phi(env.reset(), env.action_space.sample()).shape[0]
     prob = np.zeros([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim+[HORIZON])
@@ -62,10 +65,19 @@ def init():
     Z_all = Z_all.reshape(-1, utils.state_dim+utils.action_dim)
     #Z_tilda_all = Z_tilda_all.reshape(-1,utils.state_dim+utils.action_dim+1)
 
+    states = utils.obs2bin(states)
+    actions = utils.obs2bin(actions)
+    next_states = utils.obs2bin(next_states)
+
     return dataset, env, prob, VHat, states, next_states, actions, rewards, K, d, m, Z_all #, Z_tilda_all
 
 def main(args):
     _, env, prob, VHat, states, next_states, actions, rewards, K, d, m, Z_all = init()
+    kernel = ConstantKernel(1.0,constant_value_bounds=(1e-2, 10)) * RBF(length_scale=1.0,length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=0.5, noise_level_bounds=(1e-3,1))
+    gp_r = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+    gp_px = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+    gp_py = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+    gp_ps = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
     for h in list(range(1, HORIZON+1))[::-1]: 
         print("Running at period h = ", h)
         states_h, actions_h, rewards_h, next_states_h = states[:, h-1, :], actions[:, h-1, :], rewards[:, h-1], next_states[:, h-1, :]
@@ -87,23 +99,19 @@ def main(args):
         S_h = np.ravel(next_states_h, order='F')
  """
         #Initiating and fitting Gaussian Processes 
+        random_idx = random.sample(range(utils.num_trajectories), args.batch_size)
+        start_time = time.time()
 
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
-
-        gp_r = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_r.fit(z_h, rewards_h)
+        gp_r.fit(z_h[random_idx], rewards_h[random_idx])
         mu_rh, sigma_rh = gp_r.predict(Z_all, return_std=True)
 
-        gp_px = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_px.fit(z_xh, next_states_h[:, 0])
+        gp_px.fit(z_xh[random_idx], next_states_h[random_idx, 0])
         mu_phx, sigma_phx = gp_px.predict(Z_all[:, [0,3]], return_std=True)
 
-        gp_py = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_py.fit(z_yh, next_states_h[:, 1])
+        gp_py.fit(z_yh[random_idx], next_states_h[random_idx, 1])
         mu_phy, sigma_phy = gp_py.predict(Z_all[:, [1,3]], return_std=True)
 
-        gp_ps = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_ps.fit(z_sh, next_states_h[:, 2])
+        gp_ps.fit(z_sh[random_idx], next_states_h[random_idx, 2])
         mu_phs, sigma_phs = gp_ps.predict(Z_all[:, [2,3]], return_std=True)
 
         mu_rh = mu_rh.reshape([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim)
@@ -114,6 +122,9 @@ def main(args):
         sigma_phy = sigma_phy.reshape([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim)
         mu_phs = mu_phs.reshape([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim)
         sigma_phs = sigma_phs.reshape([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim)
+        
+        print("Time taken for all GP update is", time.time()-start_time)
+        start_time = time.time()
 
         # Computing W matrix 
         tau = args.lamda*np.eye(3)
@@ -201,6 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', default=1)
     parser.add_argument('--lamda', default=1)
     parser.add_argument('--var', default=0.3)
+    parser.add_argument('--batch_size', default = 200)
     args = parser.parse_args()
     prob = main(args)
     np.save("gp_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)

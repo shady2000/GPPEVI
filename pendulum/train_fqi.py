@@ -15,6 +15,7 @@ def init():
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
     dataset.load("./dataset--nt-{}_h-{}_s-{}_a-{}".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))
     env = gym.make(utils.env_name)
+    env.seed(1)
     Z_all = np.zeros([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins]*utils.action_dim+[utils.state_dim+utils.action_dim])
     for s_id in np.ndindex((utils.num_obs_bins,)*utils.state_dim):
         for a_id in np.ndindex((utils.num_act_bins)*utils.action_dim): 
@@ -28,13 +29,17 @@ def init():
     #z stores all (s,a) pairs from the dataset 
     s_init = obs2bin(env.reset())
     prob = np.zeros([utils.num_obs_bins]*len(s_init)+[utils.num_act_bins]+[HORIZON])
-
+    states = utils.obs2bin(states)
+    actions = utils.obs2bin(actions)
+    next_states = utils.obs2bin(next_states)
     return env, dataset, Z_all, states, actions, rewards, next_states, z, prob
 
 def main(args):
     env, dataset, Z_all, states, actions, rewards, next_states, z_data, prob = init()
     kernel = ConstantKernel(1.0,constant_value_bounds=(1e-2, 10)) * RBF(length_scale=1.0,length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=0.5, noise_level_bounds=(1e-3,1))
     gp_Q = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=20)
+    #what is restart optimizer 
+    #constant value bound?
 
     Y = np.zeros((len(states), 1))
     Q_pred = np.zeros([utils.num_obs_bins]*utils.state_dim+[utils.num_act_bins])
@@ -45,7 +50,8 @@ def main(args):
         print("Training at iteration", iter)
         for i in range(len(states)):
             Y[i] = rewards[i] + args.gamma*np.amax(Q_pred[utils.obs2bin(next_states[i])])
-        random_idx = random.sample(range(len(states)), args.N)
+            #maybe check this
+        random_idx = random.sample(range(len(states)), args.N) #maybe edit here
         print(z_data.shape)
         print(Y.shape)
         gp_Q = gp_Q.fit(z_data[random_idx], Y[random_idx])
@@ -73,5 +79,5 @@ if __name__ == '__main__':
     parser.add_argument('--exp', type = float, default=0.1)
     args = parser.parse_args()
     prob = main(args)
-    np.save("gpfqi_nt-{}_s-{}_a-{}".format(utils.num_trajectories, utils.num_obs_bins, utils.num_act_bins), prob)
+    np.save("gpfqi_nt-{}_s-{}_a-{}_it-{}".format(utils.num_trajectories, utils.num_obs_bins, utils.num_act_bins, args.it), prob)
     print("Saved offline policy to", "gpfqi_nt-{}_s-{}_a-{}.npy".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))
