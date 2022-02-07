@@ -285,7 +285,7 @@ class PQL_BCQ(object):
         for it in range(iterations):
             # Sample replay buffer / batch
             state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
-            print("Start training iteration", it, "of train_vae in total of", iterations, "iterations")
+            #print("Start training iteration", it, "of train_vae in total of", iterations, "iterations")
             recon, mean, std = self.vae2(state)
             recon_loss = F.mse_loss(recon, state)
             KL_loss = -0.5 * (1 + torch.log(std.pow(2)) - mean.pow(2) - std.pow(2)).mean()

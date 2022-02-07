@@ -8,7 +8,7 @@ ps = []
 
 def init(): 
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
-    dataset.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
+    dataset.load("./qltab_dataset--nt-2000_h-40")
     env = GridWorld()
     K = utils.num_trajectories
     d = phi(env.current_location, ACTIONS[0]).shape[0]
@@ -25,7 +25,7 @@ def main(args):
     exp = args.exp
     lamb = 1
     shrink_rate = 0.5
-    beta_init = 2000
+    beta_init = 1
     #epsilon = args.epsilon
     #xi = math.log(2*d*HORIZON*K/epsilon)
     #lamb = 1
@@ -60,9 +60,15 @@ def main(args):
                 Q_hat_h[x][a] = np.clip(Q_Overline_h[x][a], 0, HORIZON - h + 1)
             for a in range(len(ACTIONS)):
                 if (a == np.argmax(Q_hat_h[x][:])):
-                    pi_h[x][a] = 1 - args.exp
+                    #pi_h[x][a] = 1 - args.exp
+                    pi_h[x][a] = 1
                 else:
-                    pi_h[x][a] = args.exp/(len(ACTIONS))
+                    #pi_h[x][a] = args.exp/(len(ACTIONS))
+                    pi_h[x][a] = 0
+        for x in np.ndindex((BOARD_SIZE,)*utils.state_dim):
+            sum = np.sum(pi_h[x][:])
+            for a in range(len(ACTIONS)):
+                pi_h[x][a] = pi_h[x][a]/sum
             VHat[x][h-1] = np.dot(Q_hat_h[x][:], pi_h[x][:])
         prob[:, :, :, h-1] = pi_h
     return prob
@@ -72,10 +78,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--c', type=float, default=1)
     parser.add_argument('--epsilon', type=float, default=0.01)
-    parser.add_argument('--exp', type=float, default=0.1)
+    parser.add_argument('--exp', type=float, default=0.05)
     #parser.add_argument('--lamb', type=float, default=1)
     #parser.add_argument('--beta', type=float)
     args = parser.parse_args()
     prob = main(args)
-    np.save("pevi_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)
-    print("Saved offline policy to", "pevi_nt-{}_h-{}.npy".format(utils.num_trajectories, HORIZON))
+    np.save("pevi_truephi_nt-{}_h-{}_fromqltab".format(utils.num_trajectories, HORIZON), prob)
+    print("Saved offline policy to", "pevi_truephi_nt-{}_h-{}_fromqltab.npy".format(utils.num_trajectories, HORIZON))

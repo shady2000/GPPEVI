@@ -2,7 +2,7 @@ import numpy as np
 import torch 
 from env import ACTIONS
 
-num_trajectories = 500
+num_trajectories = 2000
 state_dim = 2
 action_dim = 1
 

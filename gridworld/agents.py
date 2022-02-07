@@ -4,7 +4,7 @@ from env import ACTIONS, GridWorld
 environment = GridWorld()
 
 class Q_Agent():
-    def __init__(self, epsilon=0.05, alpha=0.1, gamma=1):
+    def __init__(self, epsilon=0.01, alpha=0.1, gamma=1):
         self.q_table = dict() # Store all Q-values in dictionary of dictionaries 
         for x in range(environment.height): # Loop through all possible grid spaces, create sub-dictionary for each
             for y in range(environment.width):
@@ -13,12 +13,14 @@ class Q_Agent():
         self.epsilon = epsilon
         self.alpha = alpha
         self.gamma = gamma
-        
-    def choose_action(self, available_actions, h):
+        self.environment = environment
+
+    def choose_action(self, state, h):
+        #print("State is", state)
         if np.random.uniform(0,1) < self.epsilon:
-            action = available_actions[np.random.randint(0, len(available_actions))]
+            action = ACTIONS[np.random.randint(0, len(ACTIONS))]
         else:
-            q_values_of_state = self.q_table[self.environment.current_location]
+            q_values_of_state = self.q_table[state]
             maxValue = max(q_values_of_state.values())
             action = np.random.choice([k for k, v in q_values_of_state.items() if v == maxValue])
         
@@ -49,7 +51,7 @@ class GPAgent():
     def __init__(self, policy_log):
         self.policy_all = np.load(policy_log)
     def choose_action(self, state, h):
-        policy_raw = self.policy_all[state[0],state[1],state[2], :, h]
+        policy_raw = self.policy_all[state[0],state[1], :, h]
         policy = policy_raw/policy_raw.sum() 
         action = np.random.choice(ACTIONS, p=policy)
         return np.array([action])
@@ -58,7 +60,7 @@ class FQIAgent():
     def __init__(self, policy_log):
         self.policy_all = np.load(policy_log)
     def choose_action(self, state, h):
-        policy_raw = self.policy_all[state[0],state[1],state[2], :]
+        policy_raw = self.policy_all[state[0],state[1], :]
         policy = policy_raw/policy_raw.sum() 
         action = np.random.choice(ACTIONS, p=policy)
         return np.array([action])

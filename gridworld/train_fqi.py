@@ -5,11 +5,12 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern, WhiteKernel
 import random
 import time
-from env import ACTIONS, BOARD_SIZE, GridWorld, HORIZON
+from env import ACTIONS, BOARD_SIZE, GridWorld, HORIZON  
 
 def init(): 
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
-    dataset.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
+    #dataset.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
+    dataset.load("./qltab_dataset--nt-2000_h-40")
     env = GridWorld()
     Z_all = np.zeros((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), 3))
     for s in np.ndindex((BOARD_SIZE,)*utils.state_dim):
@@ -32,8 +33,9 @@ def main(args):
     Q_pred = np.zeros([BOARD_SIZE]*utils.state_dim+[len(ACTIONS)])
     iter = 0 
     print("== Start Training ==")
-
+    start_time = time.time()
     while (iter < args.it):
+        start_time = time.time()
         print("Training at iteration", iter)
         for i in range(len(states)):
             Y[i] = rewards[i] + args.gamma*np.amax(Q_pred[int(next_states[i][0]), int(next_states[i][1])])
@@ -42,6 +44,7 @@ def main(args):
         Q_pred = gp_Q.predict(Z_all)
         Q_pred = Q_pred.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS)))
         iter = iter+1
+        print("Time taken for this loop is", time.time() - start_time)
 
     print("== Finished Training ==")
 
@@ -59,8 +62,8 @@ def main(args):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gamma', type=float, default=0.9)
-    parser.add_argument('--it', type=int, default=100)
+    parser.add_argument('--gamma', type=float, default=1)
+    parser.add_argument('--it', type=int, default=1000)
     parser.add_argument('--N', type = int, default=200)
     parser.add_argument('--exp', type = float, default=0.1)
     args = parser.parse_args()

@@ -1,5 +1,5 @@
 import argparse
-from env import GridWorld
+from env import BOARD_SIZE, GridWorld
 import numpy as np
 import os
 import torch
@@ -7,7 +7,7 @@ import torch
 import BCQ
 import BEAR
 import utils
-from utils import HORIZON
+from env import HORIZON
 
 import time
 import pickle
@@ -35,7 +35,8 @@ def train_PQL_BEAR(state_dim, action_dim, max_action, device, args):
 
     # Load buffer
     replay_buffer = utils.Dataset(state_dim, action_dim)
-    replay_buffer.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON), args.load_buffer_size, bootstrap_dim=4)
+    #replay_buffer.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON), args.load_buffer_size, bootstrap_dim=4)
+    replay_buffer.load("./qltab_dataset--nt-2000_h-40", args.load_buffer_size, bootstrap_dim=4)
     evaluations = []
     training_iters = 0
     print("== Loaded buffer ==")
@@ -97,6 +98,8 @@ def train_PQL_BCQ(state_dim, action_dim, max_state, max_action, device, args):
         vae_loss = policy.train_vae(replay_buffer, iterations=int(args.eval_freq), batch_size=args.batch_size)
         print(f"Training iterations: {training_iters}. State VAE loss: {vae_loss:.3f}.")
         training_iters += args.eval_freq
+        print("Time taken for this loop is", time.time()-start_time)
+        start_time = time.time()
 
     if args.automatic_beta:  # args.automatic_beta:
         test_loss = policy.test_vae(replay_buffer, batch_size=100000)
@@ -156,16 +159,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default="Pendulum-v0")  # OpenAI gym environment name (need to be consistent with the dataset name)
-    parser.add_argument("--dataset", default="dataset--nt-{}_h-{}_s-{}_a-{}".format(utils.num_trajectories, HORIZON, utils.num_obs_bins, utils.num_act_bins))  # D4RL dataset name
+    parser.add_argument("--dataset", default="qltab_dataset--nt-2000_h-40")  # D4RL dataset name
     parser.add_argument("--seed", default=1, type=int)  # Sets Gym, PyTorch and Numpy seeds
-    parser.add_argument("--eval_freq", default=1e4, type=float)  # How often (time steps) we evaluate
-    parser.add_argument("--max_timesteps", default=5e5,
+    parser.add_argument("--eval_freq", default=1000, type=float)  # How often (time steps) we evaluate. Initial: 1e4
+    parser.add_argument("--max_timesteps", default=5e4, #initial: 5e5
                         type=int)  # Max time steps to run environment or train for (this defines buffer size)
-    parser.add_argument("--max_vae_trainstep", default=2e5, type=int)
+    parser.add_argument("--max_vae_trainstep", default=3e4, type=int) #initial: 2e5
 
     # BCQ parameter
     parser.add_argument("--batch_size", default=100, type=int)  # Mini batch size for networks
-    parser.add_argument("--discount", default=0.99)  # Discount factor
+    parser.add_argument("--discount", default=1)  # Discount factor
     parser.add_argument("--tau", default=0.005)  # Target network update rate
     parser.add_argument("--lmbda", default=0.75)  # Weighting for clipped double Q-learning in BCQ
     parser.add_argument("--phi", default=0.1, type=float)  # Max perturbation hyper-parameter for BCQ
@@ -223,8 +226,10 @@ if __name__ == "__main__":
     state_dim = 2
     #action_dim = env.action_space.shape[0]
     action_dim = 1
-    max_action = float(env.action_space.high[0])
-    max_state = float(env.observation_space.high[0])
+    #max_action = float(env.action_space.high[0])
+    max_action = 4
+    #max_state = float(env.observation_space.high[0])
+    max_state = BOARD_SIZE
     if max_state == np.inf:
         max_state = None
 

@@ -9,9 +9,18 @@ trans_noise = 0.05
 def phi(state, action): 
     x = state[0]
     y = state[1]
-    action_index = ACTIONS.index(action)
-    return np.array([1/(x**2+1), 1/(y**2+1), 1/(action_index+1)])
-
+    #action_index = ACTIONS.index(action)
+    #return 1/3*np.array([x/BOARD_SIZE, y/BOARD_SIZE, action_index/len(ACTIONS)])
+    if (x >= BOARD_SIZE/2 and y >= BOARD_SIZE/2):
+        return np.array([0])
+    elif (x < BOARD_SIZE/2 and y < BOARD_SIZE/2 and x>1 and y >1):
+        return np.array([1/2])
+    elif (x == 0 and y == 0):
+        return np.array([1])
+    else:
+        #return np.clip(0, 1, raw_reward + reward_noise)
+        return np.array([1/4])
+        
 class GridWorld:
     def __init__(self):
         # Set information about the gridworld
@@ -20,7 +29,8 @@ class GridWorld:
         self.grid = np.zeros(( self.height, self.width)) - 1
         
         # Set random start location for the agent
-        self.current_location = (np.random.randint(0,BOARD_SIZE), np.random.randint(0,BOARD_SIZE))
+        #self.current_location = (np.random.randint(0,BOARD_SIZE), np.random.randint(0,BOARD_SIZE))
+        self.current_location = (BOARD_SIZE-1, BOARD_SIZE-1)
         self.actions = ACTIONS
 
         # Set locations for special states if special states are needed
@@ -38,7 +48,7 @@ class GridWorld:
     
     def reset(self): 
         #self.current_location = (np.random.randint(0,BOARD_SIZE), np.random.randint(0,BOARD_SIZE))
-        self.current_location = (BOARD_SIZE, BOARD_SIZE)
+        self.current_location = (BOARD_SIZE-1, BOARD_SIZE-1)
 
     def get_available_actions(self):
         return self.actions
@@ -52,19 +62,24 @@ class GridWorld:
         """Returns the reward for an input position"""
         x = current_location[0]
         y = current_location[1]
-        p = phi(current_location, action)
-        reward_noise = np.random.normal(scale = 0.01)
-        w_df = pd.read_csv("rw.csv")
-        w_array = w_df.to_numpy()[:,1]/(BOARD_SIZE+BOARD_SIZE+len(ACTIONS))
-        raw_reward = np.dot(w_array, p)
+        #p = phi(current_location, action)
+        reward_noise = np.random.normal(scale = 0.05)
+        #w_df = pd.read_csv("rw.csv")
+        #w_array = w_df.to_numpy()[:,1]/(BOARD_SIZE+BOARD_SIZE+len(ACTIONS))
+        #raw_reward = np.dot(w_array, p)
         if (x >= BOARD_SIZE/2 and y >= BOARD_SIZE/2):
-            return 0
+            #return 0
+            return np.clip(0, 1, reward_noise)
         elif (x < BOARD_SIZE/2 and y < BOARD_SIZE/2 and x>1 and y >1):
-            return 1/4
-        elif (x == 1 and y == 1):
-            return 1
+            #return 1/2
+            return np.clip(0, 1, 1/2 + reward_noise)
+        elif (x == 0 and y == 0):
+            #return 1
+            return np.clip(0, 1, 1 + reward_noise)
         else:
-            return np.clip(0, 1, raw_reward + reward_noise)
+            #return np.clip(0, 1, raw_reward + reward_noise)
+            #return 1/4
+            return np.clip(0, 1, 1/4 + reward_noise)
 
     def make_step(self, action):
         last_location = self.current_location

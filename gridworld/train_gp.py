@@ -5,8 +5,9 @@ import utils
 from env import BOARD_SIZE, HORIZON, ACTIONS
 from env import GridWorld
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
-
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, Matern, WhiteKernel
+import time 
+import random
 #specifying the kernel functions
 def kr(z1, z2): 
     #squared exponential kernel
@@ -19,7 +20,7 @@ def kp(z1, i1, z2, i2):
     z_2 = np.concatenate((z2, np.array([i2])))
     return np.exp(-np.dot(z_1-z_2, z_1-z_2)/args.sigma)
 
-def kr_col(z, col):
+def kr_col(z, col):   
     return np.array([kr(z, zi) for zi in col])
 
 def kp_col(z, i, tilda_col):
@@ -36,7 +37,7 @@ def z(s, a):
 
 def init():
     dataset = utils.Dataset(utils.state_dim, utils.action_dim)
-    dataset.load("./dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
+    dataset.load("./qltab_dataset--nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
     env = GridWorld()
     K = utils.num_trajectories
     d = utils.phi(env.current_location, ACTIONS[0]).shape[0]
@@ -48,14 +49,14 @@ def init():
     next_states = dataset.next_state[0:K*HORIZON,:].reshape((K, HORIZON, utils.state_dim))
     Z_all = np.zeros((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), 3))
     m = len(env.current_location)
-    Z_tilda_all = np.zeros((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m, 4))
+    #Z_tilda_all = np.zeros((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m, 4))
     for x in np.ndindex((BOARD_SIZE, BOARD_SIZE)):
         for a in range(len(ACTIONS)):
             Z_all[x][a][:] = np.array([x[0], x[1], ACTIONS[a]])
-    for x in np.ndindex((BOARD_SIZE, BOARD_SIZE)):
-        for a in range(len(ACTIONS)): 
-            for i in range(m): 
-                Z_tilda_all[x][a][i][:] = np.array([x[0], x[1], ACTIONS[a], i])
+    #for x in np.ndindex((BOARD_SIZE, BOARD_SIZE)):
+    #    for a in range(len(ACTIONS)): 
+    #        for i in range(m): 
+    #            Z_tilda_all[x][a][i][:] = np.array([x[0], x[1], ACTIONS[a], i])
 
     Z_all = Z_all.reshape(-1, 3)
     #Z_tilda_all = Z_tilda_all.reshape(-1,4)
@@ -64,6 +65,12 @@ def init():
 
 def main(args):
     _, env, prob, VHat, states, next_states, actions, rewards, K, d, m, Z_all = init()
+
+    kernel = ConstantKernel(1.0,constant_value_bounds=(1e-2, 10)) * RBF(length_scale=1.0,length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=0.5, noise_level_bounds=(1e-3,1))
+    gp_r = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+    gp_px = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+    gp_py = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+
     for h in list(range(1, HORIZON+1))[::-1]: 
         print("Running at period h = ", h)
         states_h, actions_h, rewards_h, next_states_h = states[:, h-1, :], actions[:, h-1, :], rewards[:, h-1], next_states[:, h-1, :]
@@ -81,24 +88,29 @@ def main(args):
         #    else: 
         #        z_tilda_h[id] = np.array([states_h[id-K][0], states_h[id-K][1], actions_h[id-K], 2], dtype=object)
         #S_h = np.ravel(next_states_h, order='F')
+        #kernel = ConstantKernel(1.0,constant_value_bounds=(1e-2, 10)) * RBF(length_scale=1.0,length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=0.5, noise_level_bounds=(1e-3,1))
 
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
-
-        gp_r = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_r.fit(z_h, rewards_h)
+        random_idx = random.sample(range(utils.num_trajectories), args.batch_size)
+        start_time = time.time()
+        gp_r.fit(z_h[random_idx], rewards_h[random_idx])
         mu_rh, sigma_rh = gp_r.predict(Z_all, return_std=True)
 
         #training GP_P with the setting of online learning paper
         #gp_p = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        #gp_p.fit(z_tilda_h, S_h)
+        #gp_p.fit(z_tilda_h, S_h) 
         #mu_ph, sigma_ph = gp_p.predict(Z_tilda_all, return_std=True)
+        #mu_ph = mu_ph.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m))
+        #sigma_ph = sigma_ph.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m)) 
+        
+        #kernel = C(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
+        #gp_r = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+        #gp_px = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
+        #gp_py = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
 
-        gp_px = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_px.fit(z_xh, next_states_h[:, 0])
+        gp_px.fit(z_xh[random_idx], next_states_h[random_idx, 0])
         mu_phx, sigma_phx = gp_px.predict(Z_all[:,[0, 2]], return_std=True)
 
-        gp_py = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9)
-        gp_py.fit(z_yh, next_states_h[:, 1])
+        gp_py.fit(z_yh[random_idx], next_states_h[random_idx, 1])
         mu_phy, sigma_phy = gp_py.predict(Z_all[:,[1, 2]], return_std=True)        
         
         mu_rh = mu_rh.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS)))
@@ -107,13 +119,13 @@ def main(args):
         sigma_phx = sigma_phx.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS)))
         mu_phy = mu_phy.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS)))
         sigma_phy = sigma_phy.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS)))
-
-        #mu_ph = mu_ph.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m))
-        #sigma_ph = sigma_ph.reshape((BOARD_SIZE, BOARD_SIZE, len(ACTIONS), m))
         
+        print("Time taken for all GP update is", time.time()-start_time)
+        start_time = time.time()
+
         tau = args.lamda*np.eye(2)
         cov = np.array([[args.var, 0], [0, args.var]])
-        mean = np.array([mu_phx, mu_phy])
+        #mean = np.array([mu_phx, mu_phy])
         M = np.linalg.inv(tau+cov)
         alpha = np.sqrt(np.linalg.det(M)*args.lamda)*args.sigma
         Wh = np.zeros((BOARD_SIZE*BOARD_SIZE, BOARD_SIZE*BOARD_SIZE))
@@ -144,9 +156,10 @@ def main(args):
         mig_rh = 1/2*math.log(np.linalg.det(np.identity(K)+ 1/args.lr*K_rh))
         mig_phx = 1/2*math.log(np.linalg.det(np.identity(K) + 1/args.lp*K_phx))
         mig_phy = 1/2*math.log(np.linalg.det(np.identity(K) + 1/args.lp*K_phy))
-        """ d = z[0].shape()
-        mig_rh = math.log(K)**d
-        mig_ph = math.log(K*m)**d """
+
+        #d = z[0].shape()
+        #mig_rh = math.log(K)**d
+        #mig_ph = math.log(K*m)**d
 
         beta_rh = 1 + args.sdR/math.sqrt(HORIZON)*math.sqrt(2*math.log(3/args.delta) + mig_rh)
         beta_phx = 1 + args.sdP/math.sqrt(HORIZON)*math.sqrt(2*math.log(3/args.delta) + mig_phx)
@@ -166,7 +179,7 @@ def main(args):
                 Q_hat_h = np.clip(0, HORIZON-h+1, Q_overline_h)
             for a in range(len(ACTIONS)):
                 if (a == np.argmax(Q_hat_h[x][:])):
-                    #pi_h[x][a] = 1 - args.exp
+                    #pi_h[x][a] = 1 - args.exp (exploration strategy)
                     pi_h[x][a] = 1
                 else:
                     #pi_h[x][a] = args.exp/(len(ACTIONS))
@@ -187,7 +200,8 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', default=1)
     parser.add_argument('--lamda', default=1)
     parser.add_argument('--var', default=0.3)
+    parser.add_argument('--batch_size', default = 200)
     args = parser.parse_args()
     prob = main(args)
-    np.save("gp_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)
-    print("Saved offline GP policy to", "gp_nt-{}_h-{}.npy".format(utils.num_trajectories, HORIZON))
+    np.save("gp_verify_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)
+    print("Saved offline GP policy to", "gp_verify_nt-{}_h-{}.npy".format(utils.num_trajectories, HORIZON))
