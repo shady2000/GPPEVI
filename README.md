@@ -1,5 +1,7 @@
 # GPPEVI
 
+Gaussian Process for Offline Reinforcement Learning with Insufficient Data Coverage
+
 In Gridworld:
 
     + BCQ.py, BEAR.py, train_pql.py are used for training PQL policy 
