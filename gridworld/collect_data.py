@@ -4,7 +4,9 @@ import utils
 import numpy as np
 import os
 
+data_path = "/media/Z/shun/storage/gridworld/dataset"
 #collects data with random policy. Should consider mixing with suboptimal policy
+
 def main(args): 
     K = utils.num_trajectories
     env = GridWorld()
@@ -22,9 +24,10 @@ def main(args):
             done = False
             dataset.add(state, action, reward, state_next, done)
             h = h+1
-    if not os.path.exists("./dataset--nt-{}_h-{}".format(K, HORIZON)):
-        os.makedirs("./dataset--nt-{}_h-{}".format(K, HORIZON))
-    dataset.save("./dataset--nt-{}_h-{}".format(K, HORIZON))
+        env.reset()
+    if not os.path.exists(data_path + "/random_dataset--nt-{}_h-{}".format(K, HORIZON)):
+        os.makedirs(data_path + "/random_dataset--nt-{}_h-{}".format(K, HORIZON))
+    dataset.save(data_path + "/random_dataset--nt-{}_h-{}".format(K, HORIZON))
     print("Offline data saved to", "dataset--nt-{}_h-{}".format(K, HORIZON))
 
 if __name__ == '__main__':
