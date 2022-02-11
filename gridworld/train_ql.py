@@ -5,8 +5,12 @@ import numpy as np
 import utils 
 import os
 
+model_path = "/media/Z/shun/storage/gridworld/model/"
+
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
+
+epsilon = 0.1
 
 def train_ql(trials=20000):
     agent = Q_Agent()
@@ -44,13 +48,13 @@ def train_ql(trials=20000):
 
             for a in range(len(ACTIONS)):
                 if a == greedy_action: 
-                    #prob[x, y, a] = 1-agent.epsilon
-                    prob[x, y, a] = 1
+                    prob[x, y, a] = 1-agent.epsilon
+                    #prob[x, y, a] = 1
                 else: 
-                    #prob[x, y, a] = agent.epsilon/3
-                    prob[x, y, a] = 0
-    np.save("qltab2_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)
-    print("Saved Q Learning Policy to", "qltab2_nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
+                    prob[x, y, a] = agent.epsilon/3
+                    #prob[x, y, a] = 0
+    np.save(model_path + "qltab2_nt-{}_h-{}".format(utils.num_trajectories, HORIZON), prob)
+    print("Saved Q Learning Policy to", model_path + "qltab2_nt-{}_h-{}".format(utils.num_trajectories, HORIZON))
     sum_reward_list = []
     for h in range(HORIZON):
         cumul = 0
