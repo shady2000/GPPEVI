@@ -6,11 +6,10 @@ BOARD_SIZE = 20
 ACTIONS = [0, 1, 2, 3]
 trans_noise = 0.05
 
+#phi true
 def phi(state, action): 
     x = state[0]
     y = state[1]
-    #action_index = ACTIONS.index(action)
-    #return 1/3*np.array([x/BOARD_SIZE, y/BOARD_SIZE, action_index/len(ACTIONS)])
     if (x >= BOARD_SIZE/2 and y >= BOARD_SIZE/2):
         return np.array([0])
     elif (x < BOARD_SIZE/2 and y < BOARD_SIZE/2 and x>1 and y >1):
@@ -18,9 +17,18 @@ def phi(state, action):
     elif (x == 0 and y == 0):
         return np.array([1])
     else:
-        #return np.clip(0, 1, raw_reward + reward_noise)
         return np.array([1/4])
-        
+#phi1
+# def phi(state, action):
+#     x = state[0]
+#     y = state[1]
+#     return np.array([(x**2+y**2)*action**2]) 
+#phi2
+# def phi(state, action):
+#     x = state[0]
+#     y = state[1]
+#     return np.array([x, y, action], dtype=object)
+
 class GridWorld:
     def __init__(self):
         # Set information about the gridworld
@@ -63,23 +71,24 @@ class GridWorld:
         x = current_location[0]
         y = current_location[1]
         #p = phi(current_location, action)
-        reward_noise = np.random.normal(scale = 0.05)
+        reward_noise = np.random.uniform(-(1e-3), 1e-3)
+        #reward_noise = 0
         #w_df = pd.read_csv("rw.csv")
         #w_array = w_df.to_numpy()[:,1]/(BOARD_SIZE+BOARD_SIZE+len(ACTIONS))
         #raw_reward = np.dot(w_array, p)
         if (x >= BOARD_SIZE/2 and y >= BOARD_SIZE/2):
             #return 0
-            return np.clip(0, 1, reward_noise)
+            return np.clip(reward_noise, 0, 1)
         elif (x < BOARD_SIZE/2 and y < BOARD_SIZE/2 and x>1 and y >1):
             #return 1/2
-            return np.clip(0, 1, 1/2 + reward_noise)
+            return np.clip(1/2 + reward_noise, 0, 1)
         elif (x == 0 and y == 0):
             #return 1
-            return np.clip(0, 1, 1 + reward_noise)
+            return np.clip(1 + reward_noise, 0, 1)
         else:
             #return np.clip(0, 1, raw_reward + reward_noise)
             #return 1/4
-            return np.clip(0, 1, 1/4 + reward_noise)
+            return np.clip(1/4 + reward_noise, 0, 1)
 
     def make_step(self, action):
         last_location = self.current_location
@@ -91,7 +100,7 @@ class GridWorld:
                     self.current_location = (last_location[0] - 1, last_location[1])
             
             elif action == 1:
-                if last_location[0] != self.height - 1:
+                if last_location[0] != self.width - 1:
                     self.current_location = (last_location[0] + 1, last_location[1])
                 
             elif action == 2:
@@ -99,7 +108,7 @@ class GridWorld:
                     self.current_location = (last_location[0], last_location[1] - 1)
 
             elif action == 3:
-                if last_location[1] != self.width - 1:
+                if last_location[1] != self.height - 1:
                     self.current_location = (last_location[0], last_location[1] + 1)
 
         else: 
